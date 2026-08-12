@@ -1,0 +1,24 @@
+artifact_path: /home/pechandiat/projects/fraud_det/mlruns/1/models/m-fa7bda9cc13947bca7c4bf5b456cfbaa/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.skops
+    predict_fn: predict
+    python_version: 3.12.12
+  sklearn:
+    code: null
+    pickled_model: model.skops
+    serialization_format: skops
+    sklearn_version: 1.9.0
+    skops_trusted_types:
+    - numpy.dtype
+mlflow_version: 3.15.1
+model_id: m-fa7bda9cc13947bca7c4bf5b456cfbaa
+model_size_bytes: 60360896
+model_uuid: m-fa7bda9cc13947bca7c4bf5b456cfbaa
+prompts: null
+run_id: f7554956aaeb4f43b7b42772c3fec8fe
+utc_time_created: '2026-08-12 18:45:07.030199'

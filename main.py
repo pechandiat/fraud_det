@@ -6,11 +6,14 @@ Main entrypoint for training and evaluating the fraud detection model.
 This module loads data, applies preprocessing, builds a pipeline, runs
 stratified cross-validation, and logs results and the trained model to MLflow.
 """
+import argparse
+import json
 
 import mlflow
 import mlflow.sklearn
 from sklearn.model_selection import StratifiedKFold, cross_validate  # type: ignore
 from src.data import clean_features, create_null_indicator, load_data, to_numeric
+from src.models import build_model
 from src.pipeline import build_pipeline
 
 DATA_PATH = "data/Fraud_Dataset.csv"
@@ -21,8 +24,21 @@ COLUMNS_TO_ONEHOT = ["J"]
 COLUMNS_TO_IMPUTE = ["C"]
 TARGET = "Fraude"
 
-mlflow.set_experiment("fraud_detection")
+def parse_args():
+    """Parse command-line arguments for the fraud detection model.
 
+    Returns:
+        argparse.Namespace: Parsed arguments containing model type, run name,
+                          hyperparameters, and data path.
+    """
+    parser = argparse.ArgumentParser(description="Train and tack fraud detection model")
+    parser.add_argument("--model", type=str, default="random_forest",
+                        choices=["random_forest","lightgbm","xgboost"])
+    parser.add_argument("--run-name", type=str, default=None)
+    parser.add_argument("--params", type=str, default='{}',
+                        help='Hyperparameters as JSON, example: \'{"n_estimators":200}\'')
+    parser.add_argument("--data-path",type=str, default=DATA_PATH)
+    return parser.parse_args()
 
 def main():
     """Train and evaluate a Random Forest fraud detection model using cross-validation.
@@ -32,7 +48,12 @@ def main():
     and performs stratified k-fold cross-validation with multiple metrics.
     Logs all results to MLflow.
     """
-    df = load_data(path=DATA_PATH)
+
+    args = parse_args()
+    param_overrides = json.loads(args.params)
+    run_name = args.run_name or f"{args.model}_baseline"
+
+    df = load_data(args.data_path)
 
     df = to_numeric(df, columns_to_number=COLUMNS_TO_NUMBER)
 
@@ -46,10 +67,12 @@ def main():
         c for c in x.columns if c not in COLUMNS_TO_ONEHOT + COLUMNS_TO_IMPUTE
     ]
 
+    model, final_params = build_model(args.model, **param_overrides)
     pipe = build_pipeline(
+        model=model,
         columns_to_onehot=COLUMNS_TO_ONEHOT,
         columns_to_impute=COLUMNS_TO_IMPUTE,
-        numerical_rest=numerical_rest,
+        numerical_rest=numerical_rest
     )
 
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
@@ -62,10 +85,11 @@ def main():
         "pr_auc": "average_precision",
     }
 
-    with mlflow.start_run(run_name="rf_baseline_balanced"):
-        mlflow.log_param("model", "RandomForestClassification")
-        mlflow.log_param("class_weight", "balanced")
-        mlflow.log_param("n_estimators", 100)
+    mlflow.set_experiment("fraud_detection")
+    with mlflow.start_run(run_name=run_name):
+        mlflow.log_param("model", args.model)
+        for k, v in final_params.items():
+            mlflow.log_param(k, v)
 
         cv_results = cross_validate(pipe, x, y, cv=cv, scoring=scoring)
 
@@ -75,7 +99,18 @@ def main():
             mlflow.log_metric(f"{metric}_std", scores.std())
 
         pipe.fit(x, y)
-        mlflow.sklearn.log_model(pipe, "model", skops_trusted_types=["numpy.dtype"])
+        mlflow.sklearn.log_model(
+            pipe,
+            "model",
+            skops_trusted_types=[
+                "numpy.dtype",
+                "xgboost.core.Booster",
+                "xgboost.sklearn.XGBClassifier",
+                "collections.OrderedDict",
+                "lightgbm.basic.Booster",
+                "lightgbm.sklearn.LGBMClassifier",
+            ],
+        )
 
 
 if __name__ == "__main__":
