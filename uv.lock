@@ -409,6 +409,18 @@ wheels = [
 ]
 
 [[package]]
+name = "colorlog"
+version = "6.12.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8c/55/ba79756cb90c8d69d599d57785398ac87bba7b19c80e87f4e8a562197c93/colorlog-6.12.0.tar.gz", hash = "sha256:2a7924c1dadf18b22a0eb8b06d1c7b01d5341707ec1641eb6fcc4fde0c3e8e5f", size = 18151, upload-time = "2026-07-23T13:40:40.71Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d4/19/0b6647bf5e331521e55d2b63bfbdc210bd9cd605189273f03614a05f702d/colorlog-6.12.0-py3-none-any.whl", hash = "sha256:30d392604e9110045a2c2aeefc27d7a017abbab63f3a8aee594eac0801df784e", size = 12239, upload-time = "2026-07-23T13:40:39.562Z" },
+]
+
+[[package]]
 name = "contourpy"
 version = "1.3.3"
 source = { registry = "https://pypi.org/simple" }
@@ -690,6 +702,7 @@ dependencies = [
     { name = "matplotlib" },
     { name = "mlflow" },
     { name = "numpy" },
+    { name = "optuna" },
     { name = "pandas" },
     { name = "scikit-learn" },
     { name = "seaborn" },
@@ -710,6 +723,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.11.1" },
     { name = "mlflow", specifier = ">=3.15.1" },
     { name = "numpy", specifier = ">=2.5.2" },
+    { name = "optuna", specifier = ">=4.9.0" },
     { name = "pandas", specifier = ">=2.3.3" },
     { name = "scikit-learn", specifier = ">=1.9.0" },
     { name = "seaborn", specifier = ">=0.13.2" },
@@ -2216,6 +2230,24 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/3f/eb/489d22ef3cadb2f5f3bbd6e6099d17b5a521ff533e086f78f005c3358017/optree-0.19.1-cp314-cp314t-win32.whl", hash = "sha256:312048e69dc88de26915674f961bf38980a765a6b48ead2f1672858a39402c41", size = 357465, upload-time = "2026-05-06T02:32:15.424Z" },
     { url = "https://files.pythonhosted.org/packages/e0/34/7f48b7034ff75d2eb3e94e2196709ddbf762798fb621f9508899fa66b44e/optree-0.19.1-cp314-cp314t-win_amd64.whl", hash = "sha256:60e9345405d7b06cafdf1b1dd2e2261ceddddce10f35729240f90e2bab845a0b", size = 397783, upload-time = "2026-05-06T02:32:16.853Z" },
     { url = "https://files.pythonhosted.org/packages/07/42/6d6f93416c66820cb8753e65b5ff43c47480af9c4911bd2b8406ff0f7f27/optree-0.19.1-cp314-cp314t-win_arm64.whl", hash = "sha256:4e103e212d1e8fe0399ed076eff80a905fb14929729bbd994d3660110a27a252", size = 396064, upload-time = "2026-05-06T02:32:18.077Z" },
+]
+
+[[package]]
+name = "optuna"
+version = "4.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "alembic" },
+    { name = "colorlog" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "pyyaml" },
+    { name = "sqlalchemy" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f4/aa/05f5e3f662cc96a4c478fc3446b8ed6359825a2b504ecb614a9ac84e4a4d/optuna-4.9.0.tar.gz", hash = "sha256:b322e5cbdf1655fb84c37646c4a7a1f391de1b47806bbe222e015825d0a82b87", size = 485834, upload-time = "2026-06-01T06:23:30.424Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ab/f3/e5fcd5d9b15771ed6dc10e3a7eeddc672e418f4f4c4653d216cc1d857e2d/optuna-4.9.0-py3-none-any.whl", hash = "sha256:f52f3be6148654850c92a5860d398fd88ec6b2c84ab68d9c3d07dcff02e7afee", size = 425553, upload-time = "2026-06-01T06:23:28.804Z" },
 ]
 
 [[package]]
