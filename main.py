@@ -12,17 +12,19 @@ import json
 import mlflow
 import mlflow.sklearn
 from sklearn.model_selection import StratifiedKFold, cross_validate  # type: ignore
+from src.config import (
+    COLUMNS_TO_DROP,
+    COLUMNS_TO_FLAG,
+    COLUMNS_TO_IMPUTE,
+    COLUMNS_TO_NUMBER,
+    COLUMNS_TO_ONEHOT,
+    DATA_PATH,
+    TARGET,
+)
 from src.data import clean_features, create_null_indicator, load_data, to_numeric
 from src.models import build_model
 from src.pipeline import build_pipeline
 
-DATA_PATH = "data/Fraud_Dataset.csv"
-COLUMNS_TO_DROP = ["K"]
-COLUMNS_TO_NUMBER = ["Q", "R", "Monto"]
-COLUMNS_TO_FLAG = ["C"]
-COLUMNS_TO_ONEHOT = ["J"]
-COLUMNS_TO_IMPUTE = ["C"]
-TARGET = "Fraude"
 
 def parse_args():
     """Parse command-line arguments for the fraud detection model.
@@ -85,7 +87,7 @@ def main():
         "pr_auc": "average_precision",
     }
 
-    mlflow.set_experiment("fraud_detection")
+    mlflow.set_experiment("fraud-detection")
     with mlflow.start_run(run_name=run_name):
         mlflow.log_param("model", args.model)
         for k, v in final_params.items():

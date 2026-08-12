@@ -14,16 +14,18 @@ import mlflow.sklearn
 import optuna
 from lightgbm import LGBMClassifier
 from sklearn.model_selection import StratifiedKFold, cross_validate
+from src.config import (
+    COLUMNS_TO_DROP,
+    COLUMNS_TO_FLAG,
+    COLUMNS_TO_IMPUTE,
+    COLUMNS_TO_NUMBER,
+    COLUMNS_TO_ONEHOT,
+    DATA_PATH,
+    TARGET,
+)
 from src.data import clean_features, create_null_indicator, load_data, to_numeric
 from src.pipeline import build_pipeline
 
-DATA_PATH = "data/Fraud_Dataset.csv"
-COLUMNS_TO_DROP = ["K"]
-COLUMNS_TO_NUMBER = ["Q", "R", "Monto"]
-COLUMNS_TO_FLAG = ["C"]
-COLUMNS_TO_ONEHOT = ["J"]
-COLUMNS_TO_IMPUTE = ["C"]
-TARGET = "Fraude"
 N_TRIALS = 40
 
 df = load_data(DATA_PATH)

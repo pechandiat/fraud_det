@@ -1,7 +1,5 @@
 """Module for data loading and preprocessing utilities."""
 
-from typing import List
-
 import pandas as pd  # type: ignore
 
 
@@ -18,7 +16,7 @@ def load_data(path: str) -> pd.DataFrame:
     df = pd.read_csv(path)
     return df
 
-def to_numeric(df: pd.DataFrame, columns_to_number: List[str]) -> pd.DataFrame:
+def to_numeric(df: pd.DataFrame, columns_to_number: list) -> pd.DataFrame:
     """
     Convert specified columns to numeric type.
 
@@ -33,7 +31,7 @@ def to_numeric(df: pd.DataFrame, columns_to_number: List[str]) -> pd.DataFrame:
         df[column] = pd.to_numeric(df[column], errors='coerce')
     return df
 
-def clean_features(df: pd.DataFrame, columns_to_drop: List[str]) -> pd.DataFrame:
+def clean_features(df: pd.DataFrame, columns_to_drop: list) -> pd.DataFrame:
     """
     Clean the DataFrame by dropping unnecessary columns.
 
@@ -45,7 +43,7 @@ def clean_features(df: pd.DataFrame, columns_to_drop: List[str]) -> pd.DataFrame
 
     return df
 
-def create_null_indicator(df: pd.DataFrame, columns_to_flag: List[str]) -> pd.DataFrame:
+def create_null_indicator(df: pd.DataFrame, columns_to_flag: list) -> pd.DataFrame:
     """
     Create a new column indicating whether the specified column has null values.
 
