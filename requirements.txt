@@ -1,0 +1,16 @@
+pandas
+tensorflow[and-cuda]>=2.21.0
+langchain
+matplotlib
+seaborn
+mlflow
+numpy
+scikit-learn
+transformers
+huggingface-hub
+docker
+fastapi
+flask
+loguru
+
+
