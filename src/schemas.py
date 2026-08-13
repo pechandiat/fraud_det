@@ -37,7 +37,7 @@ class Transaction(BaseModel):
     A: float = Field(description="Range seen on training: 0 - 30")
     B: float = Field(description="Range seen on training: -1 - 20")
     C: float | None = Field(
-        default=None, description="Range seen on training: 0 - 617324. Puede ser nulo."
+        default=None, description="Range seen on training: 0 - 617324. Could be null."
     )
     D: float = Field(description="Range seen on training: 0 - 180")
     E: float = Field(description="Range seen on training: 0 - 45")
@@ -45,7 +45,7 @@ class Transaction(BaseModel):
     G: float = Field(description="Range seen on training: 0 - 1")
     H: float = Field(description="Range seen on training: 0 - 21")
     I: float = Field(description="Range seen on training: 0 - 24")
-    J: CountryCode = Field(description="Country code (ISO-like, 2 letras)")
+    J: CountryCode = Field(description="Country code (ISO-like, 2 letters)")
     L: float = Field(description="Range seen on training: 0 - 7")
     M: float = Field(description="Range seen on training: 1 - 13")
     N: float = Field(description="Range seen on training: 1 - 10")

@@ -1,0 +1,229 @@
+# Fraud Detection — End-to-End ML/MLOps Project
+
+Complete Machine Learning lifecycle project: from data exploration to a model served via API, containerized, with experiment tracking and versioning through MLflow.
+
+## Table of Contents
+
+- [Fraud Detection — End-to-End ML/MLOps Project](#fraud-detection--end-to-end-mlmlops-project)
+  - [Table of Contents](#table-of-contents)
+  - [Project Overview](#project-overview)
+  - [The Path to the Final Dataset](#the-path-to-the-final-dataset)
+    - [First Attempt: Synthetic 9-CSV Dataset (Discarded)](#first-attempt-synthetic-9-csv-dataset-discarded)
+    - [Final Dataset: `Fraud_Dataset.csv`](#final-dataset-fraud_datasetcsv)
+  - [Data Exploration and Cleaning](#data-exploration-and-cleaning)
+  - [Modeling](#modeling)
+    - [Pipeline](#pipeline)
+    - [Model Comparison](#model-comparison)
+    - [Hyperparameter Tuning](#hyperparameter-tuning)
+  - [Experiment Tracking with MLflow](#experiment-tracking-with-mlflow)
+  - [Model Registry](#model-registry)
+  - [Model Serving: FastAPI](#model-serving-fastapi)
+  - [Deployment with Docker](#deployment-with-docker)
+    - [Deployment Issues Resolved](#deployment-issues-resolved)
+  - [Project Structure](#project-structure)
+  - [How to Run](#how-to-run)
+    - [Option A — Docker Compose (Recommended, Full Environment)](#option-a--docker-compose-recommended-full-environment)
+    - [Option B — Local Development](#option-b--local-development)
+  - [Key Learnings](#key-learnings)
+  - [Next Steps](#next-steps)
+
+## Project Overview
+
+A binary classification model for detecting fraudulent transactions, built following a workflow representative of a real-world MLOps project:
+
+1. Prototyping and validating the idea in a Jupyter Notebook
+2. Migrating to reproducible `.py` modules
+3. Systematic model comparison (Random Forest, XGBoost, LightGBM)
+4. Hyperparameter tuning with Bayesian optimization (Optuna)
+5. Tracking all experiments with MLflow
+6. Versioning the winning model in the MLflow Model Registry
+7. Serving the model through a REST API (FastAPI)
+8. Reproducible deployment with Docker Compose (MLflow server + API, in separate containers communicating over a network)
+
+**Final model result (tuned LightGBM):** F1 ≈ 0.62, PR-AUC ≈ 0.70, ROC-AUC ≈ 0.82 (validated with 5-fold stratified cross-validation).
+
+## The Path to the Final Dataset
+
+This project went through two datasets before arriving at the current one — and that decision, along with its diagnosis, is itself part of the project's value.
+
+### First Attempt: Synthetic 9-CSV Dataset (Discarded)
+
+The first dataset combined 9 CSV files (customer profiles, fraud indicators, suspicious activity, merchant information, transaction amounts, and transaction metadata). After building the complete pipeline and training a baseline model, the diagnosis revealed that **the dataset had no real learnable signal**:
+
+- The predicted probabilities were practically identical across the fraud/non-fraud classes
+- `feature_importances_` were evenly distributed, with no dominant variable
+- ROC-AUC fell below 0.5 (worse than random) after setting `class_weight="balanced"`
+
+Conclusion: the fraud label in that synthetic dataset had no real causal relationship with the other columns — a common pattern in synthetic datasets generated without sufficient care to simulate fraud.
+
+### Final Dataset: `Fraud_Dataset.csv`
+
+The dataset from a previous fraud project was reused — anonymized columns (`A`, `B`, `C`, ...) plus `Monto` and the `Fraude` target. Unlike the previous dataset, this one showed real and significant correlations with the target in the initial correlation matrix.
+
+- **16,880 rows**, with a target containing **~27% fraud** (much more balanced than the original dataset, which was around 4.5%)
+- `Monto`, `Q`, and `R` required conversion from text to numeric
+- Column `K`: **76% null values**, with no business context to confidently impute → discarded
+- Column `C`: 19% nulls, left-skewed distribution → imputed with the median, and an indicator column `C_is_null` was added to preserve the signal that the value was missing
+- Column `J` (country code, 19 unique values): encoded with `OneHotEncoder`
+
+## Data Exploration and Cleaning
+
+The complete prototyping work (EDA, correlation matrix, target distribution, null-value diagnosis, feature engineering) lives in `notebooks/prototyping.ipynb`. The validated cleaning logic was migrated to `src/data.py`:
+
+- `load_data()` — loads the CSV
+- `to_numeric()` — converts text columns to numeric (`Monto`, `Q`, `R`)
+- `clean_features()` — removes discarded columns (`K`)
+- `create_null_indicator()` — generates `*_is_null` columns before imputation
+
+## Modeling
+
+### Pipeline
+
+Defined in `src/pipeline.py` with `sklearn.Pipeline` + `ColumnTransformer`:
+
+- Median imputation for `C`
+- One-hot encoding for `J`
+- Passthrough for the remaining numeric columns
+
+### Model Comparison
+
+Three models were compared with `class_weight="balanced"` (or its equivalent), validated with `StratifiedKFold` (5 folds), using **PR-AUC** as the primary decision metric (more appropriate than ROC-AUC or accuracy given the class imbalance):
+
+| Model | F1 | PR-AUC | Precision | CV Duration |
+|---|---|---|---|---|
+| Random Forest (balanced) | 0.602 | 0.672 | 0.602 | 9.7s |
+| XGBoost (baseline) | 0.613 | 0.692 | 0.572 | 3.8min |
+| XGBoost (tuned) | 0.617 | 0.693 | 0.555 | 1.2min |
+| **LightGBM (baseline)** | **0.622** | **0.701** | 0.546 | **2.4s** |
+
+**LightGBM won on F1 and PR-AUC while also being dramatically faster** — it was selected as the base model for tuning.
+
+### Hyperparameter Tuning
+
+Bayesian search with **Optuna** (40 trials), directly optimizing PR-AUC, with each trial logged as a nested run in MLflow (`tune.py`). Best result: **PR-AUC = 0.7027** — an improvement of only +0.0017 over the untuned baseline, within the model's own statistical noise margin (std ±0.013).
+
+> **Honest note:** Hyperparameter tuning did not significantly improve the model. This indicates that LightGBM's defaults were already close to the optimum achievable with this feature set, and that the actual improvement ceiling (~0.70 PR-AUC) is limited by the information available in the data, not by the model. Since the columns are anonymous (`A`, `B`, `C`...) and have no interpretable business meaning, additional feature engineering was not attempted — doing so would have meant guessing combinations without a conceptual basis, with a real risk of introducing noise or overfitting to the specific dataset.
+
+Best hyperparameters found:
+```text
+n_estimators=443, num_leaves=59, max_depth=10, learning_rate=0.033,
+min_child_samples=17, subsample=0.71, colsample_bytree=0.84
+```
+
+## Experiment Tracking with MLflow
+
+All training runs (baselines for the 3 models and the 40 tuning trials) are registered in MLflow: parameters, CV metrics (mean and standard deviation per metric), and the serialized model as an artifact.
+
+- `main.py` — trains an individual model, configurable through the CLI:
+  ```bash
+  uv run python main.py --model lightgbm --run-name lgbm_baseline
+  uv run python main.py --model xgboost --params '{"n_estimators": 300}'
+  ```
+- `tune.py` — runs the Optuna search over LightGBM (winner of model comparison), logging each trial as a nested run under a parent run
+
+## Model Registry
+
+The winning model (tuned LightGBM) was registered in the MLflow Model Registry under the name `fraud-detection-lgbm`, with the `champion` alias pointing to the active version. Using an alias (instead of a fixed version number) makes it possible to promote a new model without having to modify or redeploy the code that consumes it.
+
+```bash
+uv run python register_model.py --run-id <RUN_ID> --model-name fraud-detection-lgbm
+```
+
+## Model Serving: FastAPI
+
+`app.py` exposes the model as a minimal REST API:
+
+- `GET /health` — health check
+- `POST /predict` — receives transaction data (validated with Pydantic in `src/schemas.py`, including ranges observed during training as non-restrictive documentation, and a closed list of valid country codes) and returns `is_fraud` + `fraud_probability`
+
+The model is loaded at startup directly from the Model Registry via alias:
+
+```python
+model = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}@{MODEL_ALIAS}")
+```
+
+Interactive documentation is available at `/docs` (Swagger UI).
+
+## Deployment with Docker
+
+Two independent services, orchestrated with `docker-compose.yml`:
+
+- **`mlflow-server`** — tracking server (SQLite + artifact store with HTTP proxy), exposed on `:5000`
+- **`api`** — FastAPI API, exposed on `:8000`, connected to `mlflow-server` through the internal Docker Compose network (`MLFLOW_TRACKING_URI=http://mlflow-server:5000`)
+
+Both containers use `uv` for dependency management, with Docker layers optimized for caching (dependencies are installed before copying the application code).
+
+### Deployment Issues Resolved
+
+Documented here because they are representative of real infrastructure bugs, not just issues specific to this project:
+
+| Issue | Cause | Solution |
+|---|---|---|
+| `PermissionError: /app` when logging the model | `--artifacts-destination` pointed to a local filesystem path inside the container; the client attempted to write there directly | Remove the flag and use MLflow's default artifact proxy |
+| `Invalid Host header — possible DNS rebinding attack` | MLflow security middleware (≥3.5) rejected the `mlflow-server` hostname | `--allowed-hosts "localhost:*,mlflow-server:*"` (port wildcard required) |
+| `OSError: libgomp.so.1: cannot open shared object file` | LightGBM depends on OpenMP (a native C library), which was missing from the minimal base image | `apt-get install -y libgomp1` in the API `Dockerfile` |
+
+## Project Structure
+
+```text
+fraud_det/
+├── app.py                  # FastAPI API
+├── main.py                 # Training CLI (model-parameterized)
+├── tune.py                 # Tuning with Optuna + MLflow
+├── register_model.py       # Programmatic registration in the Model Registry
+├── src/
+│   ├── config.py           # Shared constants (columns, paths, model name)
+│   ├── data.py              # Data loading and cleaning
+│   ├── pipeline.py          # sklearn ColumnTransformer + Pipeline
+│   ├── models.py            # Model factory (registry + defaults)
+│   └── schemas.py           # API Pydantic contracts
+├── notebooks/
+│   └── prototyping.ipynb   # Original prototyping: EDA, dataset diagnosis, baseline
+├── data/
+│   └── Fraud_Dataset.csv
+├── Dockerfile               # API image
+├── Dockerfile.mlflow        # MLflow server image
+├── docker-compose.yml       # Orchestration of both services
+├── pyproject.toml / uv.lock # Dependencies (managed with uv)
+└── test/                    # (under construction)
+```
+
+## How to Run
+
+### Option A — Docker Compose (Recommended, Full Environment)
+
+```bash
+docker compose up -d
+```
+
+- MLflow UI: http://localhost:5000
+- API (Swagger): http://localhost:8000/docs
+
+### Option B — Local Development
+
+```bash
+# Keep the MLflow server running in Docker (persistent)
+docker compose up -d mlflow-server
+
+# Work locally against that same server
+export MLFLOW_TRACKING_URI=http://localhost:5000
+uv run python main.py --model lightgbm --run-name lgbm_baseline
+uv run python tune.py
+uv run uvicorn app:app --reload
+```
+
+> It is recommended to always use the same MLflow server (the Docker one) as the single source of truth, rather than starting additional local instances — this avoids fragmenting the experiment history across different backend stores.
+
+## Key Learnings
+
+- **Diagnosing a lack of signal in a dataset is just as valuable as training a good model** — it prevents investing effort in tuning/feature engineering on a foundation that has nothing to learn.
+- **PR-AUC, not accuracy or ROC-AUC alone, is the right criterion for choosing between models with imbalanced classes.**
+- **Hyperparameter tuning has diminishing returns** — it is useful for squeezing out the margin provided by the model, not for compensating for a lack of information in the data.
+- **Recognize when an adjustment (e.g. `class_weight`) improves actual model discrimination vs. when it only shifts the precision/recall trade-off** (ROC-AUC/PR-AUC barely changing ⇒ the model did not learn more, it only moved the decision threshold).
+- **Preprocessing code must be shared literally between training and inference** (`src/data.py` is used by both `main.py` and `app.py`) to avoid *training-serving skew*.
+
+## Next Steps
+
+- [ ] Automated tests with `pytest` (pipeline, API schemas, CV)
+- [ ] CI/CD with GitHub Actions
+- [ ] Interactive demo (Gradio/Streamlit) on top of the API
