@@ -1,0 +1,25 @@
+services:
+  mlflow-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-data:/app        # persiste mlflow.db entre reinicios
+      - mlflow-artifacts:/app/mlartifacts  # persiste los modelos guardados
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow-server:5000
+    depends_on:
+      - mlflow-server
+
+volumes:
+  mlflow-data:
+  mlflow-artifacts:

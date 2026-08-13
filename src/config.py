@@ -11,3 +11,5 @@ COLUMNS_TO_ONEHOT = ["J"]
 COLUMNS_TO_IMPUTE = ["C"]
 
 MODEL_NAME = "fraud-detection-lgbm"
+MODEL_ALIAS = "champion"
+MODEL_VERSION = 1

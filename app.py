@@ -1,16 +1,23 @@
 """FastAPI application serving the fraud detection model from the MLflow registry."""
 
+import os
+
 import mlflow
 import pandas as pd  # type: ignore
 from fastapi import FastAPI
-from src.config import COLUMNS_TO_FLAG, COLUMNS_TO_NUMBER, MODEL_NAME
+from src.config import (
+    COLUMNS_TO_FLAG,
+    COLUMNS_TO_NUMBER,
+    MODEL_ALIAS,
+    MODEL_NAME,
+    MODEL_VERSION,
+)
 from src.data import create_null_indicator, to_numeric
 from src.schemas import PredictionResponse, Transaction
 
-MODEL_ALIAS = "champion"
-MODEL_VERSION = 1
-
 app = FastAPI(title="Fraud Detection API")
+
+mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000"))
 
 model = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}@{MODEL_ALIAS}")
 
