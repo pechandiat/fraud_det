@@ -18,6 +18,7 @@ Complete Machine Learning lifecycle project: from data exploration to a model se
   - [Experiment Tracking with MLflow](#experiment-tracking-with-mlflow)
   - [Model Registry](#model-registry)
   - [Model Serving: FastAPI](#model-serving-fastapi)
+  - [Tests](#tests)
   - [Deployment with Docker](#deployment-with-docker)
     - [Deployment Issues Resolved](#deployment-issues-resolved)
   - [Project Structure](#project-structure)
@@ -144,6 +145,15 @@ model = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}@{MODEL_ALIAS}")
 
 Interactive documentation is available at `/docs` (Swagger UI).
 
+## Tests
+
+```bash
+uv add --dev pytest httpx2
+uv run pytest test/ -v
+```
+
+Cubre: preprocesamiento de datos, el pipeline de sklearn, el factory de modelos, la validación de schemas con Pydantic, y los endpoints de la API (con el modelo de MLflow mockeado, sin depender de que el servidor esté corriendo).
+
 ## Deployment with Docker
 
 Two independent services, orchestrated with `docker-compose.yml`:
@@ -165,27 +175,35 @@ Documented here because they are representative of real infrastructure bugs, not
 
 ## Project Structure
 
-```text
+```
 fraud_det/
-├── app.py                  # FastAPI API
-├── main.py                 # Training CLI (model-parameterized)
-├── tune.py                 # Tuning with Optuna + MLflow
-├── register_model.py       # Programmatic registration in the Model Registry
+├── app.py                  # FastAPI application
+├── main.py                 # Training CLI (parametrized by model)
+├── tune.py                 # Optuna hyperparameter tuning + MLflow logging
+├── register_model.py       # Programmatic Model Registry registration
 ├── src/
 │   ├── config.py           # Shared constants (columns, paths, model name)
-│   ├── data.py              # Data loading and cleaning
-│   ├── pipeline.py          # sklearn ColumnTransformer + Pipeline
+│   ├── data.py              # Data loading and cleaning utilities
+│   ├── pipeline.py          # sklearn ColumnTransformer + Pipeline builder
 │   ├── models.py            # Model factory (registry + defaults)
-│   └── schemas.py           # API Pydantic contracts
+│   └── schemas.py           # Pydantic request/response contracts for the API
+├── test/
+│   ├── conftest.py          # Shared pytest fixtures
+│   ├── test_data.py
+│   ├── test_pipeline.py
+│   ├── test_models.py
+│   ├── test_schemas.py
+│   └── test_api.py
 ├── notebooks/
 │   └── prototyping.ipynb   # Original prototyping: EDA, dataset diagnosis, baseline
 ├── data/
 │   └── Fraud_Dataset.csv
 ├── Dockerfile               # API image
-├── Dockerfile.mlflow        # MLflow server image
-├── docker-compose.yml       # Orchestration of both services
+├── Dockerfile.mlflow        # MLflow tracking server image
+├── docker-compose.yml       # Orchestrates both services
 ├── pyproject.toml / uv.lock # Dependencies (managed with uv)
-└── test/                    # (under construction)
+├── .gitignore                # Excludes mlruns/, mlflow.db, __pycache__/, .venv/
+└── README.md
 ```
 
 ## How to Run
@@ -224,6 +242,5 @@ uv run uvicorn app:app --reload
 
 ## Next Steps
 
-- [ ] Automated tests with `pytest` (pipeline, API schemas, CV)
 - [ ] CI/CD with GitHub Actions
 - [ ] Interactive demo (Gradio/Streamlit) on top of the API
