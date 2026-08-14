@@ -52,3 +52,4 @@ def predict(transaction: Transaction):
         is_fraud=bool(proba >= 0.5),
         fraud_probability=float(proba),
     )
+
