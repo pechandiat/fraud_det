@@ -1,0 +1,27 @@
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.skops
+    predict_fn: predict
+    python_version: 3.12.12
+  sklearn:
+    code: null
+    pickled_model: model.skops
+    serialization_format: skops
+    sklearn_version: 1.9.0
+    skops_trusted_types:
+    - numpy.dtype
+    - xgboost.core.Booster
+    - xgboost.sklearn.XGBClassifier
+    - collections.OrderedDict
+    - lightgbm.basic.Booster
+    - lightgbm.sklearn.LGBMClassifier
+mlflow_version: 3.15.1
+model_id: null
+model_size_bytes: 3690479
+model_uuid: 0b24dda2867f489688c887b847dd6f16
+prompts: null
+utc_time_created: '2026-08-14 19:31:31.308381'
