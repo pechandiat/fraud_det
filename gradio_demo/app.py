@@ -9,6 +9,7 @@ from pathlib import Path
 import gradio as gr
 import mlflow
 import pandas as pd  # type: ignore
+import spaces
 
 MODEL_PATH = Path(__file__).parent / "model"
 model = mlflow.sklearn.load_model(str(MODEL_PATH))
@@ -35,7 +36,7 @@ COUNTRY_CODES = [
     "UY",
 ]
 
-
+@spaces.GPU
 def predict(a, b, c, d, e, f, g, h, i, j, l, m, n, o, p, s, monto, q, r):
     """Predict fraud probability for a transaction.
 

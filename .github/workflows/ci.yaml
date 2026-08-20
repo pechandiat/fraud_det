@@ -43,3 +43,21 @@ jobs:
 
       - name: Build MLflow server image
         run: docker build -t mlflow-server -f Dockerfile.mlflow .
+
+  deploy-demo:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install hf CLI
+        run: pip install "huggingface_hub[cli]"
+
+      - name: Deploy to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          hf upload pechandiat/fraud-detection gradio_demo/ . --repo-type=space --token=$HF_TOKEN

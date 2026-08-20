@@ -22,9 +22,14 @@ Complete Machine Learning lifecycle project: from data exploration to a model se
   - [Deployment with Docker](#deployment-with-docker)
     - [Deployment Issues Resolved](#deployment-issues-resolved)
   - [Project Structure](#project-structure)
-  - [How to Run](#how-to-run)
-    - [Option A — Docker Compose (Recommended, Full Environment)](#option-a--docker-compose-recommended-full-environment)
-    - [Option B — Local Development](#option-b--local-development)
+  - [How to run](#how-to-run)
+    - [Prerequisites](#prerequisites)
+    - [First-time setup](#first-time-setup)
+    - [Option A — Docker Compose (full stack)](#option-a--docker-compose-full-stack)
+    - [Option B — Local development (recommended for day-to-day work)](#option-b--local-development-recommended-for-day-to-day-work)
+    - [Standalone Gradio demo](#standalone-gradio-demo)
+    - [Tests](#tests-1)
+    - [Common gotchas](#common-gotchas)
   - [Key Learnings](#key-learnings)
   - [Next Steps](#next-steps)
 
@@ -205,10 +210,23 @@ fraud_det/
 ├── .gitignore                # Excludes mlruns/, mlflow.db, __pycache__/, .venv/
 └── README.md
 ```
+## How to run
 
-## How to Run
+### Prerequisites
 
-### Option A — Docker Compose (Recommended, Full Environment)
+- [`uv`](https://docs.astral.sh/uv/) installed
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed,
+  **open and running** — WSL2 users specifically need the WSL integration
+  enabled (Docker Desktop → Settings → Resources → WSL Integration → enable
+  for your distro)
+
+### First-time setup
+
+```bash
+uv sync
+```
+
+### Option A — Docker Compose (full stack)
 
 ```bash
 docker compose up -d
@@ -217,20 +235,91 @@ docker compose up -d
 - MLflow UI: http://localhost:5000
 - API (Swagger): http://localhost:8000/docs
 
-### Option B — Local Development
+To stop (keeps all data — experiments, registered models):
+```bash
+docker compose down
+```
+To stop **and wipe all MLflow data** (start fully clean):
+```bash
+docker compose down -v
+```
+
+### Option B — Local development (recommended for day-to-day work)
+
+Keep MLflow as the single source of truth running in Docker, and iterate on
+code locally with fast reload — much quicker than rebuilding the API image
+on every change.
 
 ```bash
-# Keep the MLflow server running in Docker (persistent)
+# 1. Start only the MLflow server (leave it running in the background)
 docker compose up -d mlflow-server
 
-# Work locally against that same server
+# 2. Point your local scripts to it — required in EVERY new terminal
+#    session, it does not persist across sessions
 export MLFLOW_TRACKING_URI=http://localhost:5000
+
+# 3. Verify it's actually set before training/tuning anything
+echo $MLFLOW_TRACKING_URI
+```
+
+> ⚠️ If `MLFLOW_TRACKING_URI` is empty, `main.py`/`tune.py` will silently
+> fall back to a local `./mlruns` folder instead of the Dockerized server —
+> the script will run without errors, but the run won't show up in the
+> MLflow UI at `localhost:5000`. This is the most common source of "where
+> did my experiment go?" confusion when resuming work after a break.
+
+```bash
+# Train a single model, logged to MLflow
 uv run python main.py --model lightgbm --run-name lgbm_baseline
+
+# Hyperparameter tuning with Optuna
 uv run python tune.py
+
+# Register the best run's model
+uv run python register_model.py --run-id <RUN_ID> --model-name fraud-detection-lgbm
+# then set the "champion" alias via the MLflow UI, or:
+python -c "
+import mlflow
+client = mlflow.MlflowClient()
+client.set_registered_model_alias(name='fraud-detection-lgbm', alias='champion', version='<VERSION>')
+"
+
+# Run the API with hot-reload
 uv run uvicorn app:app --reload
 ```
 
-> It is recommended to always use the same MLflow server (the Docker one) as the single source of truth, rather than starting additional local instances — this avoids fragmenting the experiment history across different backend stores.
+### Standalone Gradio demo
+
+Self-contained — bundles its own exported copy of the model, so it doesn't
+depend on the MLflow server or the API being up.
+
+```bash
+# One-time export (requires mlflow-server running + MLFLOW_TRACKING_URI set,
+# see Option B above)
+uv run python export_model.py
+
+uv run python gradio_demo/app.py
+```
+
+### Tests
+
+```bash
+uv run pytest test/ -v
+```
+
+Covers data preprocessing, the sklearn pipeline, the model factory, API
+request/response schemas, and the API endpoints themselves (with the MLflow
+model mocked out — no live server required to run the test suite).
+
+### Common gotchas
+
+| Symptom                                                                      | Cause                                                                        | Fix                                                                                         |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `docker: command not found` in WSL                                           | Docker Desktop isn't open, or WSL integration is disabled                    | Open Docker Desktop; check Settings → Resources → WSL Integration                           |
+| Experiment doesn't show up in MLflow UI after running `main.py`/`tune.py`    | `MLFLOW_TRACKING_URI` not set in the current terminal session                | `export MLFLOW_TRACKING_URI=http://localhost:5000` (needed in every new terminal)           |
+| `PermissionError` when logging a model to the Dockerized MLflow server       | Server misconfigured with `--artifacts-destination` pointing to a local path | Let the server use its default proxied artifact serving (no `--artifacts-destination` flag) |
+| `Invalid Host header` from the MLflow server                                 | Security middleware rejecting the caller's hostname                          | `--allowed-hosts "localhost:*,mlflow-server:*"`                                             |
+| `OSError: libgomp.so.1: cannot open shared object file` in the API container | LightGBM needs OpenMP, missing from the slim base image                      | `apt-get install -y libgomp1` in the API `Dockerfile`                                       |
 
 ## Key Learnings
 
