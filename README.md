@@ -28,10 +28,11 @@ Complete Machine Learning lifecycle project: from data exploration to a model se
     - [Option A — Docker Compose (full stack)](#option-a--docker-compose-full-stack)
     - [Option B — Local development (recommended for day-to-day work)](#option-b--local-development-recommended-for-day-to-day-work)
     - [Standalone Gradio demo](#standalone-gradio-demo)
+    - [Gradio demo (HuggingFace)](#gradio-demo-huggingface)
     - [Tests](#tests-1)
-    - [Common gotchas](#common-gotchas)
+  - [CI/CD](#cicd)
+  - [Common gotchas](#common-gotchas)
   - [Key Learnings](#key-learnings)
-  - [Next Steps](#next-steps)
 
 ## Project Overview
 
@@ -301,6 +302,36 @@ uv run python export_model.py
 uv run python gradio_demo/app.py
 ```
 
+### Gradio demo (HuggingFace)
+
+A standalone, publicly-hosted demo, separate from the production API:
+
+**Live at:** https://huggingface.co/spaces/pechandiat/fraud-detection
+
+Design choice: the demo bundles its own exported copy of the model
+(`gradio_demo/model/`, produced by `export_model.py`) instead of calling the
+live API or MLflow server. This keeps it fully self-contained and
+deployable to a free public host without exposing any local infrastructure
+— the standard approach for ML demos on Hugging Face Spaces.
+
+The Space runs on the free ZeroGPU tier (free-tier accounts can no longer
+select CPU-only hardware directly), so `app.py`'s prediction function is
+decorated with `@spaces.GPU` purely to satisfy that platform requirement —
+the model itself still runs on CPU internally.
+
+To update the demo with a newer model version:
+```bash
+# 1. Promote the new model to the "champion" alias in MLflow (see Model Registry above)
+# 2. Re-export it
+export MLFLOW_TRACKING_URI=http://localhost:5000
+uv run python export_model.py
+# 3. Commit gradio_demo/model/ and push — CD handles the rest
+git add gradio_demo/model/
+git commit -m "Update demo model"
+git push origin master
+```
+
+
 ### Tests
 
 ```bash
@@ -311,7 +342,24 @@ Covers data preprocessing, the sklearn pipeline, the model factory, API
 request/response schemas, and the API endpoints themselves (with the MLflow
 model mocked out — no live server required to run the test suite).
 
-### Common gotchas
+## CI/CD
+
+GitHub Actions (`.github/workflows/ci.yml`), triggered on every push/PR to
+`master`:
+
+| Job | What it does |
+|---|---|
+| `test` | Installs dependencies with `uv` and runs the full `pytest` suite |
+| `docker-build` | Builds both Docker images (API and MLflow server), gated on `test` passing |
+| `deploy-demo` | On pushes to `master` only (not PRs): uploads `gradio_demo/` to the Hugging Face Space via the `hf` CLI, gated on `test` passing |
+
+`docker-build` and `deploy-demo` both run in parallel once `test` succeeds —
+neither depends on the other.
+
+Required repo secret: `HF_TOKEN` (a Hugging Face access token with write
+permissions, used by `deploy-demo`).
+
+## Common gotchas
 
 | Symptom                                                                      | Cause                                                                        | Fix                                                                                         |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -329,7 +377,3 @@ model mocked out — no live server required to run the test suite).
 - **Recognize when an adjustment (e.g. `class_weight`) improves actual model discrimination vs. when it only shifts the precision/recall trade-off** (ROC-AUC/PR-AUC barely changing ⇒ the model did not learn more, it only moved the decision threshold).
 - **Preprocessing code must be shared literally between training and inference** (`src/data.py` is used by both `main.py` and `app.py`) to avoid *training-serving skew*.
 
-## Next Steps
-
-- [ ] CI/CD with GitHub Actions
-- [ ] Interactive demo (Gradio/Streamlit) on top of the API
