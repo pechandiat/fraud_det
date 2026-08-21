@@ -31,6 +31,7 @@ Complete Machine Learning lifecycle project: from data exploration to a model se
     - [Gradio demo (HuggingFace)](#gradio-demo-huggingface)
     - [Tests](#tests-1)
   - [CI/CD](#cicd)
+  - [Data versioning (DVC)](#data-versioning-dvc)
   - [Common gotchas](#common-gotchas)
   - [Key Learnings](#key-learnings)
 
@@ -358,6 +359,37 @@ neither depends on the other.
 
 Required repo secret: `HF_TOKEN` (a Hugging Face access token with write
 permissions, used by `deploy-demo`).
+
+## Data versioning (DVC)
+
+The dataset is tracked with [DVC](https://dvc.org/) rather than committed
+directly to git — `data/Fraud_Dataset.csv.dvc` is the small pointer file
+that lives in git; the actual CSV is excluded (see `data/.gitignore`) and
+resolved through DVC's local cache.
+
+Two versions exist in the git history:
+
+| Version | Description | Commit |
+|---|---|---|
+| v1 | Original dataset, includes column `K` (76% missing) | `Track dataset v1 with DVC` |
+| v2 | Column `K` dropped — matches the cleaning logic in `src/config.py` | `Dataset v2: drop column K (76% missing, no reliable imputation strategy)` |
+
+Note: `K` is also dropped programmatically at preprocessing time
+(`COLUMNS_TO_DROP` in `src/config.py`), independent of which dataset
+version is checked out. Versioning it here documents *why* that decision
+was made and *when*, as a durable, inspectable record — the code drop is
+what's actually enforced at runtime.
+
+To switch between versions:
+
+```bash
+# Find the commit hash for the version you want
+git log --oneline -- data/Fraud_Dataset.csv.dvc
+
+# Check out that version's pointer, then sync the actual file via DVC
+git checkout <COMMIT_HASH> -- data/Fraud_Dataset.csv.dvc
+uv run dvc checkout
+```
 
 ## Common gotchas
 

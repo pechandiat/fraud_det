@@ -9,7 +9,7 @@ from pathlib import Path
 import gradio as gr
 import mlflow
 import pandas as pd  # type: ignore
-import spaces
+import spaces  # type: ignore
 
 MODEL_PATH = Path(__file__).parent / "model"
 model = mlflow.sklearn.load_model(str(MODEL_PATH))
